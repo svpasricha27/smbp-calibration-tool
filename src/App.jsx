@@ -346,14 +346,14 @@ export default function App() {
           <div style={{padding:"20px 32px",display:"flex",gap:12,alignItems:"center",borderTop:`1px solid ${BORDER}`,flexWrap:"wrap"}}>
             <button onClick={()=>handleAction("submit")} disabled={submitted}
               style={{...btnBase,background:submitted?"#999":GREEN,color:"white",opacity:submitted?0.6:1}}>
-              {submitted?"✓ Submitted":"Submit & Save to Database"}
+              {submitted?"✓ Submitted":"Submit"}
             </button>
             <button onClick={()=>handleAction("test")}
               style={{...btnBase,background:"white",color:SLATE,border:`2px solid ${SLATE}`}}>
               Test Only (No Save)
             </button>
             <span style={{fontSize:11.5,color:TEXT2,fontStyle:"italic"}}>
-              {mode==="test"?"Test mode — data not saved":mode==="submit"&&submitted?"Data saved to research database":""}
+              {mode==="test"?"Test mode — data not saved":mode==="submit"&&submitted?"Calibration data saved to database.":""}
             </span>
           </div>
         </div>
@@ -419,7 +419,7 @@ export default function App() {
                 <span style={{fontSize:28}}>{cr.finalResult==="pass"?"✅":"❌"}</span>
                 <span>{cr.finalResult==="pass"?"PASS — Device is validated for self-measured blood pressure monitoring":"FAIL — Device must be replaced before proceeding with SMBP"}</span>
               </div>
-              {mode==="test"&&<div style={{background:AMBER_LT,border:`1px solid ${AMBER}`,borderRadius:8,padding:"10px 14px",fontSize:12,color:"#6B5900",marginBottom:16}}>⚠️ Test mode — this result was NOT saved to the research database.</div>}
+              {mode==="test"&&<div style={{background:AMBER_LT,border:`1px solid ${AMBER}`,borderRadius:8,padding:"10px 14px",fontSize:12,color:"#6B5900",marginBottom:16}}>⚠️ Test mode — this result was NOT saved to the calibration database.</div>}
               {submitted&&<div style={{background:"#F0F7FF",border:"1px solid #C5DAF0",borderRadius:8,padding:"10px 14px",fontSize:12,color:SLATE,marginBottom:16}}>✓ Calibration data saved to research database.</div>}
               <textarea ref={reg("comments")} placeholder="Comments (optional)..."
                 style={{width:"100%",padding:"10px 14px",border:`1.5px solid ${BORDER}`,borderRadius:6,fontFamily:"inherit",fontSize:13,resize:"vertical",minHeight:50,background:"white",color:NAVY,boxSizing:"border-box"}}/>
