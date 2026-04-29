@@ -38,7 +38,7 @@ export default function App() {
   const [arm, setArm] = useState("right");
   const [copied, setCopied] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [mode, setMode] = useState(null); // null, "test", "submit"
+  const [mode, setMode] = useState(null);
   const [stats, setStats] = useState(null);
   const [validationErrors, setValidationErrors] = useState([]);
   const [today] = useState(() => new Date().toLocaleDateString("en-CA"));
@@ -46,7 +46,19 @@ export default function App() {
   const refs = useRef({});
   const calcTimer = useRef(null);
 
-  const reg = useCallback((id) => (el) => { if (el) refs.current[id] = el; }, []);
+  const reg = useCallback((id) => (el) => {
+    if (el) {
+      refs.current[id] = el;
+      if (!el.dataset.loaded && ["clinicMake","clinicModel","clinicYear"].includes(id)) {
+        try {
+          const saved = localStorage.getItem("smbp_" + id);
+          if (saved) { el.value = saved; el.style.background = "white"; }
+        } catch {}
+        el.dataset.loaded = "1";
+      }
+    }
+  }, []);
+
   const getRef = useCallback((id) => refs.current[id]?.value?.trim() || "", []);
   const getNum = useCallback((id) => { const n = parseFloat(refs.current[id]?.value); return isNaN(n)?null:n; }, []);
 
@@ -78,13 +90,12 @@ export default function App() {
     return {B,C,D,E,s2avg,s2diff,s2result,s3avg,s3diff,s3result,finalResult};
   },[getNum]);
 
-  // Live preview of calc values only (no result display until button press)
   const scheduleRecalc = useCallback(() => {
     if(calcTimer.current) clearTimeout(calcTimer.current);
     calcTimer.current = setTimeout(() => {
-      if(!mode) { // only update calc preview if no result shown yet
+      if(!mode) {
         const r = doCalc();
-        setCalcResults({...r, finalResult: null, s2result: null, s3result: null}); // show values but not results
+        setCalcResults({...r, finalResult: null, s2result: null, s3result: null});
       }
     }, 250);
   },[doCalc, mode]);
@@ -94,7 +105,7 @@ export default function App() {
     scheduleRecalc();
   },[scheduleRecalc]);
 
-  const validate = useCallback((includeClinic) => {
+  const validate = useCallback(() => {
     const errs = [];
     if(!getRef("clinicMake")) errs.push("Clinic Device Manufacturer");
     if(!getRef("clinicModel")) errs.push("Clinic Device Model");
@@ -104,7 +115,6 @@ export default function App() {
     if(!getRef("country")) errs.push("Country");
     if(!sex) errs.push("Sex");
     if(!ageRange) errs.push("Age Range");
-    // Check all 5 BP readings have at least systolic
     if(!getNum("a_sys")) errs.push("Measurement A Systolic");
     if(!getNum("b_sys")) errs.push("Measurement B Systolic");
     if(!getNum("c_sys")) errs.push("Measurement C Systolic");
@@ -147,7 +157,14 @@ export default function App() {
           final_result:results.finalResult,
           comments: refs.current.comments?.value || null,
         });
-        if(!error) setSubmitted(true);
+        if(!error) {
+          setSubmitted(true);
+          try {
+            localStorage.setItem("smbp_clinicMake", getRef("clinicMake"));
+            localStorage.setItem("smbp_clinicModel", getRef("clinicModel"));
+            localStorage.setItem("smbp_clinicYear", getRef("clinicYear"));
+          } catch {}
+        }
         else console.error("Supabase insert error:",error);
       } catch(e){console.error(e);}
     }
@@ -228,22 +245,20 @@ export default function App() {
   const reqDot=<span style={{color:RED,marginLeft:2}}>*</span>;
   const reqBg="#FFFAF0";
   const sectionTitle=(text)=><div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:0.6,color:SLATE,marginBottom:10,marginTop:16,paddingBottom:6,borderBottom:`1px solid ${BORDER}`}}>{text}</div>;
-
-  const btnBase = {padding:"12px 28px",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer",transition:"all 0.2s",letterSpacing:0.3};
+  const btnBase={padding:"12px 28px",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer",transition:"all 0.2s",letterSpacing:0.3};
 
   return (
     <div style={{minHeight:"100vh",background:BG,fontFamily:"-apple-system,'Segoe UI',sans-serif"}}>
       <div style={{maxWidth:780,margin:"0 auto",padding:"24px 20px"}}>
 
-        {/* Header */}
         <div style={{background:`linear-gradient(135deg,${NAVY} 0%,${NAVY_MID} 60%,${SLATE} 100%)`,borderRadius:"12px 12px 0 0",padding:"28px 32px",color:"white"}}>
           <h1 style={{fontSize:22,fontWeight:700,letterSpacing:-0.3,marginBottom:4}}>SMBP Device Calibration Tool</h1>
           <p style={{fontSize:13,fontWeight:300,opacity:0.85,margin:0}}>Self-Measured Blood Pressure Device Validation Protocol</p>
         </div>
 
-        {/* Disclaimer */}
-        <div style={{background:"#FFF9E6",borderLeft:`4px solid ${AMBER}`,padding:"12px 20px",fontSize:11.5,color:"#6B5900",lineHeight:1.7}}>
-          <strong>Research & Privacy Disclaimer:</strong> This tool has been intentionally designed to avoid capturing any Protected Health Information (PHI). No patient names, dates of birth, health card numbers, or other identifying information are collected. Age is captured only as a broad range (e.g. 41–50) rather than exact age to prevent any possibility of re-identification. By using this tool, you acknowledge that anonymous, de-identified data (device info, calibration results, demographics, BP readings, approximate location) may be collected for research and quality improvement purposes.
+        {/* Medico-legal disclaimer */}
+        <div style={{background:"#EEF1F8",borderLeft:`4px solid ${SLATE}`,padding:"12px 20px",fontSize:11.5,color:"#333",lineHeight:1.7}}>
+          <strong>Clinical Disclaimer:</strong> This tool is intended to assist qualified healthcare professionals in calibrating home blood pressure devices against office equipment. It does not replace clinical judgment, independent assessment, or the provider–patient relationship. The results generated by this tool should be interpreted by a licensed clinician in the context of the individual patient's clinical presentation. The developers assume no liability for clinical decisions made using this tool. By using this tool, you confirm that you are a healthcare professional or are acting under the supervision of one.
         </div>
 
         {validationErrors.length>0&&(
@@ -252,7 +267,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Patient Demographics */}
         <div style={{background:"white",borderBottom:`1px solid ${BORDER}`,padding:"20px 32px"}}>
           {sectionTitle("Patient Demographics")}
           <div style={{display:"flex",gap:12,marginBottom:12,flexWrap:"wrap"}}>
@@ -283,7 +297,6 @@ export default function App() {
                 onFocus={e=>e.target.style.background="white"} onBlur={e=>{if(!e.target.value)e.target.style.background=reqBg}}/></div>
           </div>
 
-          {/* Clinic Device */}
           {sectionTitle("Clinic BP Device (Office Reference Device)")}
           <div style={{display:"flex",gap:12,marginBottom:12,flexWrap:"wrap"}}>
             <div style={{flex:1,minWidth:160}}><label style={labelStyle}>Manufacturer{reqDot}</label>
@@ -297,7 +310,6 @@ export default function App() {
                 onInput={e=>{e.target.value=e.target.value.replace(/[^0-9]/g,"")}}/></div>
           </div>
 
-          {/* Home Device */}
           {sectionTitle("Patient Home BP Device")}
           <div style={{display:"flex",gap:12,marginBottom:12,flexWrap:"wrap"}}>
             <div style={{flex:1,minWidth:140}}><label style={labelStyle}>Make{reqDot}</label>
@@ -342,7 +354,6 @@ export default function App() {
             </tbody>
           </table>
 
-          {/* Submit / Test buttons */}
           <div style={{padding:"20px 32px",display:"flex",gap:12,alignItems:"center",borderTop:`1px solid ${BORDER}`,flexWrap:"wrap"}}>
             <button onClick={()=>handleAction("submit")} disabled={submitted}
               style={{...btnBase,background:submitted?"#999":GREEN,color:"white",opacity:submitted?0.6:1}}>
@@ -350,18 +361,17 @@ export default function App() {
             </button>
             <button onClick={()=>handleAction("test")}
               style={{...btnBase,background:"white",color:SLATE,border:`2px solid ${SLATE}`}}>
-              Test Only (No Save)
+              Test Only
             </button>
             <span style={{fontSize:11.5,color:TEXT2,fontStyle:"italic"}}>
-              {mode==="test"?"Test mode — data not saved":mode==="submit"&&submitted?"Calibration data saved to database.":""}
+              {mode==="test"?"Test mode — data not saved":mode==="submit"&&submitted?"Data saved to database":""}
             </span>
           </div>
         </div>
 
-        {/* Results — only show after Submit or Test */}
+        {/* Results */}
         {mode && cr.finalResult && (<>
 
-          {/* Step 2 */}
           <div style={{background:"white",borderRadius:12,boxShadow:"0 2px 12px rgba(15,43,76,0.08)",marginBottom:20,overflow:"hidden"}}>
             <div style={{display:"flex",alignItems:"center",gap:12,padding:"14px 32px",background:NAVY,color:"white",fontWeight:600,fontSize:14,borderRadius:"12px 12px 0 0"}}>
               <span style={{width:26,height:26,background:"rgba(255,255,255,0.2)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700}}>2</span>
@@ -385,7 +395,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Step 3 */}
           {cr.s2result==="proceed"&&(
             <div style={{background:"white",borderRadius:12,boxShadow:"0 2px 12px rgba(15,43,76,0.08)",marginBottom:20,overflow:"hidden"}}>
               <div style={{display:"flex",alignItems:"center",gap:12,padding:"14px 32px",background:NAVY,color:"white",fontWeight:600,fontSize:14,borderRadius:"12px 12px 0 0"}}>
@@ -410,7 +419,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Final Determination */}
           <div style={{borderRadius:12,overflow:"hidden",boxShadow:"0 8px 32px rgba(15,43,76,0.12)",marginBottom:20}}>
             <div style={{background:NAVY,color:"white",padding:"16px 32px",fontSize:15,fontWeight:700}}>Final Determination</div>
             <div style={{padding:"24px 32px",background:"white"}}>
@@ -419,14 +427,13 @@ export default function App() {
                 <span style={{fontSize:28}}>{cr.finalResult==="pass"?"✅":"❌"}</span>
                 <span>{cr.finalResult==="pass"?"PASS — Device is validated for self-measured blood pressure monitoring":"FAIL — Device must be replaced before proceeding with SMBP"}</span>
               </div>
-              {mode==="test"&&<div style={{background:AMBER_LT,border:`1px solid ${AMBER}`,borderRadius:8,padding:"10px 14px",fontSize:12,color:"#6B5900",marginBottom:16}}>⚠️ Test mode — this result was NOT saved to the calibration database.</div>}
-              {submitted&&<div style={{background:"#F0F7FF",border:"1px solid #C5DAF0",borderRadius:8,padding:"10px 14px",fontSize:12,color:SLATE,marginBottom:16}}>✓ Calibration data saved to research database.</div>}
+              {mode==="test"&&<div style={{background:AMBER_LT,border:`1px solid ${AMBER}`,borderRadius:8,padding:"10px 14px",fontSize:12,color:"#6B5900",marginBottom:16}}>⚠️ Test mode — this result was not saved.</div>}
+              {submitted&&<div style={{background:"#F0F7FF",border:"1px solid #C5DAF0",borderRadius:8,padding:"10px 14px",fontSize:12,color:SLATE,marginBottom:16}}>✓ Calibration data saved to database.</div>}
               <textarea ref={reg("comments")} placeholder="Comments (optional)..."
                 style={{width:"100%",padding:"10px 14px",border:`1.5px solid ${BORDER}`,borderRadius:6,fontFamily:"inherit",fontSize:13,resize:"vertical",minHeight:50,background:"white",color:NAVY,boxSizing:"border-box"}}/>
             </div>
           </div>
 
-          {/* Clinical Note */}
           <div style={{borderRadius:12,overflow:"hidden",boxShadow:"0 2px 12px rgba(15,43,76,0.08)",marginBottom:20,background:"white"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:SLATE,color:"white",padding:"14px 32px"}}>
               <span style={{fontWeight:700,fontSize:14}}>📋 Clinical Note — Copy to EHR</span>
@@ -441,7 +448,7 @@ export default function App() {
         {stats&&stats.total_tests>0&&(
           <div style={{borderRadius:12,overflow:"hidden",boxShadow:"0 2px 12px rgba(15,43,76,0.08)",marginBottom:20,background:"white"}}>
             <div style={{padding:"14px 32px",background:"#F0F2F7",borderBottom:`1px solid ${BORDER}`}}>
-              <span style={{fontWeight:700,fontSize:13,color:SLATE}}>📊 Research Data — Aggregate (All Users)</span>
+              <span style={{fontWeight:700,fontSize:13,color:SLATE}}>📊 Aggregate Data (All Users)</span>
             </div>
             <div style={{padding:"16px 32px",display:"flex",gap:20,flexWrap:"wrap",borderBottom:`1px solid ${BORDER}`}}>
               {[[stats.total_tests,"Total Tests",NAVY],[stats.total_passes,"Passed",GREEN],[stats.total_fails,"Failed",RED],
@@ -474,9 +481,11 @@ export default function App() {
           </div>
         )}
 
-        <div style={{textAlign:"center",padding:"16px 32px",fontSize:10.5,color:"#999",lineHeight:1.6}}>
-          Adapted from: Eguchi et al. A Novel and Simple Protocol for the Validation of Home BP Monitors.<br/>
-          Blood Press Monit. 2012;17(5):210-213 &nbsp;|&nbsp; AMA MAP BP™ Quality Improvement Program.
+        <div style={{textAlign:"center",padding:"16px 32px",fontSize:10.5,color:"#999",lineHeight:1.8}}>
+          This tool is derived from the <a href="https://www.ama-assn.org/system/files/smbp-device-calibration-test.pdf" target="_blank" rel="noopener noreferrer" style={{color:"#6B7FA3",textDecoration:"underline"}}>AMA Self-Measured Blood Pressure Device Calibration Test</a>,<br/>
+          part of the AMA MAP BP™ Quality Improvement Program, which was developed from:<br/>
+          Eguchi K, et al. A Novel and Simple Protocol for the Validation of Home Blood Pressure<br/>
+          Monitors in Clinical Practice. <em>Blood Press Monit.</em> 2012;17(5):210-213.
         </div>
       </div>
     </div>
