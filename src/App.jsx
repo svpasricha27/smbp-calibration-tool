@@ -50,7 +50,6 @@ export default function App() {
     if (el) refs.current[id] = el;
   }, []);
 
-  // Load saved clinic device info after mount
   useEffect(() => {
     const clinicFields = ["clinicMake","clinicModel","clinicYear"];
     const timer = setTimeout(() => {
@@ -339,7 +338,7 @@ export default function App() {
             Take Five BP Measurements (Same Arm)
           </div>
           <div style={{padding:"12px 32px",fontSize:13,color:TEXT2,borderBottom:`1px solid ${BORDER}`}}>
-            Using the same arm, take five BP measurements alternating between the patient's home device and the clinic device. No rest period required.
+            Using the same arm, take five BP measurements alternating between the patient's home device and the clinic device. No rest period required. For optimal validation, consider repeating this protocol on the opposite arm to account for any intrinsic blood pressure differences between arms.
           </div>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr style={{background:SLATE}}>
